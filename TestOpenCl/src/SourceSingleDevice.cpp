@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 /*
 *
 * Directory Setup
@@ -78,8 +79,56 @@ void getKernelInfo(cl_kernel kernel) {
 }
 
 
+/*
+* readInKernelCode takes in a filepath and converts the text into a 
+* char* for OPENCL to take in
+* const char* the filepath to the file
+* 
+* return a pointer to the character array
+* 
+*/
+char* readInKernelCode(const char* path) {
+	FILE* f = fopen(path, "r");
+
+	if (f == NULL) {
+		printf("Error loading file\n");
+		exit(1);
+	}
+
+	int index = 0;
+	int size = 10;
+	// allocate space for size chars
+	char* data = (char*)malloc(sizeof(char) * size);
+	char t;
+	int err = 1;
+	while (1 == 1) {
+		err = fscanf(f, "%c", &t);
+		if (err == 0) {
+			printf("Encounted an error\n");
+			exit(1);
+		}
+		if (err == -1) {
+			printf("End of file\n");
+			break;
+		}
+		data[index] = t;
+		index++;
+		if (index == size) {
+			data = (char*)realloc(data, size+size);
+			size = size + size;
+		}
+
+	}
+
+	data[index++] = '\0';
+	return data;
+}
+
 
 int main() {
+
+
+
 
 	// handle getting platforms
 	cl_uint num_entries=10;
@@ -87,6 +136,8 @@ int main() {
 	cl_uint num_platforms;
 	clGetPlatformIDs(num_entries, platforms, &num_platforms);
 	// look over all platforms avaliable
+
+	printf("There are %d platforms on this computer\n\n", num_platforms);
 	for (int i = 0; i < num_platforms; i++) {
 		char platform_name[150];
 		size_t param_value_size = sizeof(char) * 150;
@@ -137,11 +188,7 @@ int main() {
 			printf("    Code: %d\n", errcode_ret);
 		}
 
-		// we do not need this code
-		//cl_int ret_cont = clRetainContext(cont);
-		//if (ret_cont != CL_SUCCESS) {
-		//	printf("ERR: issue with retaining context\n");
-		//}
+
 
 		printf("Context Info:\n");
 		getContextInfo(cont);
@@ -168,89 +215,13 @@ int main() {
 		}
 
 
-		//Buffer objects
-
-		printf("Buffer Objects:\n");
-
-		int data[5] = {5,4,3,2,1};
-
-		size_t size_data = sizeof(int) * 5;
-		cl_int errcode_ret_mem;
-
-		cl_mem mem = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, size_data, &data, &errcode_ret_mem);
-
-		if (errcode_ret_mem != CL_SUCCESS) {
-			printf("ERR: issue with creating buffer\n");
-			printf("    Code: %d\n", errcode_ret_mem);
-		}
-
-		// write to buffer
-
-		printf("Writing Buffer Data:\n");
-
-		printf("    Values to write: ");
-		for (int k = 0; k < 5; k++) {
-			printf("%d, ",data[k]);
-		}
-		printf("\n");
-		cl_int write_buff = clEnqueueWriteBuffer(queue, mem, CL_TRUE, 0, size_data, &data, 0, NULL, NULL);
-		if (write_buff != CL_SUCCESS) {
-			printf("ERR: issue with writing to buffer\n");
-			printf("    Code: %d\n", write_buff);
-		}
-
-
-
-		// read from buffer
-
-		printf("Reading Buffer Data:\n");
-		int read[5];
-		cl_int read_buff = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, size_data, &read, 0, NULL, NULL);
-		if (read_buff != CL_SUCCESS) {
-			printf("ERR: issue with reading from buffer\n");
-			printf("    Code: %d\n", read_buff);
-		}
-
-		printf("    Values read in: ");
-		for (int k = 0; k < 5; k++) {
-			printf("%d, ", read[k]);
-		}
-		printf("\n");
-
-		// shared virtual memory
-
-		printf("Shared Memory:\n");
-
-		// allocate memory
-		double from = 500;
-		double* to = (double*)clSVMAlloc(cont, CL_MEM_READ_WRITE, sizeof(double), 0);
-
-		if (to == (double*)NULL) {
-			printf("Failed to make memroy\n");
-		}
-
-		// copy data to the memory buffer
-
-		cl_int mem_cpy = clEnqueueSVMMemcpy(queue, CL_TRUE, to, &from, sizeof(double), 0, NULL, NULL);
-		if (mem_cpy != CL_SUCCESS) {
-			printf("ERR: issue with copying memory\n");
-			printf("    Code: %d\n", mem_cpy);
-		}
-
-
-		printf("    SVM output: %lf\n", *to);
-
-		// clear the memory
-		clSVMFree(cont, to);
-
-
 
 		// Program objects
 
 		printf("Program Objects:\n");
 
-		const char* code = "__kernel void test(__global int* out, const int index){int sum = 0;for (int i = 0; i < 100000; i++) {sum += i;} int gid = get_global_id(0);out[gid]=gid;};";
-		//printf(\"%d, %d,,, \",index,gid);
+
+		const char* code = readInKernelCode("kernels/Main.kernel");
 		cl_int errcode_ret_prog;
 		cl_program program = clCreateProgramWithSource(cont, 1, &code, NULL, &errcode_ret_prog);
 		if (errcode_ret_prog != CL_SUCCESS) {
@@ -259,7 +230,6 @@ int main() {
 		}
 
 		// build the program
-
 		printf("Build Program:\n");
 		cl_int build = clBuildProgram(program, num_devices, devices, NULL, program_build, NULL);
 		if (build != CL_SUCCESS) {
@@ -280,18 +250,9 @@ int main() {
 
 		printf("Kernel Objects:\n");
 
-		// Option A: create individual kernel objects
-		
-		//cl_int errcode_ret_kernel;
-		//// test is the name of the kernel created above
-		//cl_kernel kernel = clCreateKernel(program, "test", &errcode_ret_kernel);
-		//if (errcode_ret_kernel != CL_SUCCESS) {
-		//	printf("ERR: issue with creating the kernel\n");
-		//	printf("    Code: %d\n", errcode_ret_kernel);
-		//}
-		
-		//Option B: create a list of kernel objects from the program
 
+		
+		// we will use the first kernel since that is our 'main' function
 		cl_kernel kernels[20];
 		cl_uint num_kernels_ret;
 		cl_int kern = clCreateKernelsInProgram(program, 20, kernels, &num_kernels_ret);
@@ -305,125 +266,145 @@ int main() {
 			printf("\n");
 		}
 
-		/////
-
-		int size_of_array = 1024*1024;
-
-		// create an array of size_of_array elements
-		int* data_in = (int*)malloc(sizeof(int) * size_of_array);
-
-		size_data = sizeof(int)*size_of_array;
-
-
-		cl_mem mem_in = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, size_data, data_in, &errcode_ret_mem);
-
-
-		cl_int write_buff_in = clEnqueueWriteBuffer(queue, mem_in, CL_TRUE, 0, size_data, data_in, 0, NULL, NULL);
-		if (write_buff != CL_SUCCESS) {
-			printf("ERR: issue with writing to buffer\n");
-			printf("    Code: %d\n", write_buff);
-		}
 
 
 
+		/*
+		* 
+		* 
+		* Create the buffer objects for the program and then send them over to the kernel arguments
+		* 
+		* 
+		*/
 
 
-		////
+		//Buffer objects
+
+		printf("Buffer Objects:\n");
+
+
+		// test using structs for sending data over
+		struct vec3 {
+			float x, y, z;
+		};
+
+
+		// give first array of vectors
+		vec3 vectors1[] = { 
+			{0,0,0},
+			{1,1,1},
+			{2,2,2},
+			{3,3,3},
+			{4,4,4},
+			{5,5,5},
+			{6,6,6},
+			{7,7,7},
+			{8,8,8},
+			{9,9,9}
+		};
+
+		// give second array of vectors
+		vec3 vectors2[] = { 
+			{0,0,0},
+			{-1,-1,-1},
+			{-2,-2,-2},
+			{-3,-3,-3},
+			{-4,-4,-4},
+			{-5,-5,-5},
+			{-6,-6,-6},
+			{-7,-7,-7},
+			{-8,-8,-8},
+			{-9,-9,-9}
+		};
+		size_t vectors1Size = sizeof(vectors1);
+		cl_mem vectors1Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors1Size, &vectors1, NULL);
+
+		
+		size_t vectors2Size = sizeof(vectors2);
+		cl_mem vectors2Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors2Size, &vectors2, NULL);
+
+
+		// this records the number of elements to process
+		size_t elements = sizeof(vectors1) / sizeof(vec3);
+		printf("Computing %d elements\n", elements);
+
+
+		// create a return array of vectors
+		cl_mem outputVectors = clCreateBuffer(cont, CL_MEM_READ_WRITE, sizeof(vec3) * elements, NULL, NULL);
+
+
+
 
 		// set kernel arguments
-		cl_int kern_arg = clSetKernelArg(kernels[0], 0, sizeof(cl_mem), &mem_in);
-		//cl_int kern_work = clSetKernelArg(kernels[0], 0, sizeof(int), &data_in);
-		printf("kern arg: %d\n", kern_arg);
-		//printf("kern work: %d\n", kern_work);
 
-		////// get kernel info
-		//size_t work_group_size;
+		// First is the output vector
+		cl_int kern_arg = clSetKernelArg(kernels[0], 0, sizeof(cl_mem), &outputVectors);
 
-		////size_t param_value_size_ret_kern;
-		//cl_int group = clGetKernelWorkGroupInfo(kernels[0], devices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &work_group_size, NULL);
-		//printf("err: %d", group);
-		//printf("    work_group_size: %lu\n", (unsigned long)work_group_size);
-		// 
-		// 
+
+		// set the first input vector
+		cl_int kernel_arg2 = clSetKernelArg(kernels[0], 1, sizeof(cl_mem), &vectors1Memory);
+
+		// set the second input vector
+		cl_int kernel_arg3 = clSetKernelArg(kernels[0], 2, sizeof(cl_mem), &vectors2Memory);
+
+
 		//// get kernel info
 		size_t work_group_size;
 		//size_t param_value_size_ret_kern;
 		cl_int group = clGetKernelWorkGroupInfo(kernels[0], devices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &work_group_size, NULL);
 		printf("err: %d", group);
 		printf("    work_group_size: %lu\n", (unsigned long)work_group_size);
-		//printf("kern size: %lu, %lu, %lu\n", (unsigned long)size_kern[0], (unsigned long)size_kern[1], (unsigned long)size_kern[2]);
 
-		////size_t local_work_group_size[3];
-		////clGetKernelSubGroupInfo(kernels[0], devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT, sizeof(size_t)*3, &work_group_size, NULL);
-		//////printf(" work group size: %lu\n", (unsigned long)local_work_group_size);
-		//
-		//// executing kernels
+
 
 		//edit work group size
-		work_group_size = size_of_array;
-		size_t local_group_size = 256;
+		work_group_size = elements;
+		size_t local_group_size = 1;
 
 		printf("Executing Kernels:\n");
-		int index = 0;
-		clSetKernelArg(kernels[0], 1, sizeof(int), &index);
 
-		for (int h = 0; h < 80*10000; h++) {
-			cl_int ex = clEnqueueNDRangeKernel(queue, kernels[0], 1, NULL, &work_group_size, &local_group_size, 0, NULL, NULL);
-			//printf("%d\n", ex);
-		}
 
-		//size_t global_work_size[1] = { 500/(2*4)};
-		//size_t local_work_size[1] = { 500};
-		//std::vector<cl_event> events(size_of_array);
-		
-		//for (int i = 0; i < size_of_array; i++) {
-		//	if (i % 100000 == 0) {
-		//		printf("%d\n", i);
+		cl_int ex = clEnqueueNDRangeKernel(queue, kernels[0], 1, NULL, &work_group_size, &local_group_size, 0, NULL, NULL);
 
-		//	}
-		//	//create event
-		//	cl_event event;
-
-		//	cl_int ex = clEnqueueNDRangeKernel(queue,kernels[0],1,NULL,&work_group_size, &local_group_size, 0, NULL, &event);
-		//	if (ex != CL_SUCCESS) {
-		//		printf("ERR: %d", ex);
-
-		//	}
-		//	//events.push_back(event);
-		//	//for (int i = 0; i < events.size(); i++) {
-		//	//	char stat[80];
-		//	//	cl_int check = clGetEventInfo(events[i], CL_EVENT_COMMAND_EXECUTION_STATUS | CL_COMPLETE, sizeof(char) * 80, stat, NULL);
-		//	//	printf("%s\n", stat);
-		//	//	printf("%d\n", check);
-		//	//	//if(events[i])
-		//	//}
-
-		//}
 
 
 		// wait for command to finish
 		clFinish(queue);
 
-		// read in values
+
+		//// read in values
 		printf("Read in values from kernel\n");
 		printf("Reading Buffer Data:\n");
-		int* read_in = (int*)malloc(sizeof(int) * size_of_array);
-		cl_int read_buff_out = clEnqueueReadBuffer(queue, mem_in, CL_TRUE, 0, size_data, read_in, 0, NULL, NULL);
-		if (read_buff != CL_SUCCESS) {
-			printf("ERR: issue with reading from buffer\n");
-			printf("    Code: %d\n", read_buff);
+		vec3* output = (vec3*)malloc(sizeof(vec3) * (elements));
+		//vec3 output[50];
+		cl_int ret = 0;
+		ret = clEnqueueReadBuffer(queue, outputVectors, CL_TRUE, 0, sizeof(vec3) * elements, output, 0, NULL, NULL);
+
+		printf("Return from read buffer: %d\n", ret);
+		for (int i = 0; i < elements; i++) {
+			vec3 temp = output[i];
+			printf("I: %d :: (%f, %f, %f)\n", i, temp.x,temp.y,temp.z);
 		}
 
-		//for (int l = 0; l < size_of_array; l++) {
-		//	printf("Read in value: %d\n", read_in[l]);
-
+		//int* read_in = (int*)malloc(sizeof(int) * size_of_array);
+		
+		//cl_int read_buff_out = clEnqueueReadBuffer(queue, mem_in, CL_TRUE, 0, size_data, read_in, 0, NULL, NULL);
+		//if (read_buff_out != CL_SUCCESS) {
+		//	printf("ERR: issue with reading from buffer\n");
+		//	printf("    Code: %d\n", read_buff_out);
 		//}
 
 
 
+
+
 		//release memory
-		clReleaseMemObject(mem_in);
-		clReleaseMemObject(mem);
+		clReleaseMemObject(vectors1Memory);
+		clReleaseMemObject(vectors2Memory);
+		clReleaseMemObject(outputVectors);
+
+
+		exit(1);
 
 
 		printf("\n\n");

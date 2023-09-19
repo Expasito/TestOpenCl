@@ -1,0 +1,126 @@
+
+
+// creating a buffer
+
+// Step 1: create an array
+int test[] = {1,2,3,4,5};
+
+// give an integer to record the error code of the function
+int errcode;
+cl_mem location = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(test),&test,&errcode);
+
+
+
+// write data to the buffer
+// &test gives the location of the data to assign to the buffer
+clEnqueueWriteBuffer(queue, location, L_TRUE,0,sizeof(test),&test,0,NULL,NULL);
+
+
+
+// read the buffer
+int read[50];
+clEnqueueWriteBuffer(queue, location, CL_TRUE, 0, sizeof(test),&read,0,NULL,NULL);
+
+
+
+// Example code below
+
+
+int data[] = {5,4,3,2,1,2,3,4,5,6,7,8,9};
+
+		size_t size_data = sizeof(data);
+		cl_int errcode_ret_mem;
+
+		cl_mem mem = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, size_data, &data, &errcode_ret_mem);
+
+		if (errcode_ret_mem != CL_SUCCESS) {
+			printf("ERR: issue with creating buffer\n");
+			printf("    Code: %d\n", errcode_ret_mem);
+		}
+
+		// write to buffer
+
+		printf("Writing Buffer Data:\n");
+
+		printf("    Values to write: ");
+		for (int k = 0; k < size_data/sizeof(int); k++) {
+			printf("%d, ",data[k]);
+		}
+		printf("\n");
+		cl_int write_buff = clEnqueueWriteBuffer(queue, mem, CL_TRUE, 0, size_data, &data, 0, NULL, NULL);
+		if (write_buff != CL_SUCCESS) {
+			printf("ERR: issue with writing to buffer\n");
+			printf("    Code: %d\n", write_buff);
+		}
+
+
+
+		// read from buffer
+
+		printf("Reading Buffer Data:\n");
+		int read[50];
+		cl_int read_buff = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, size_data, &read, 0, NULL, NULL);
+		if (read_buff != CL_SUCCESS) {
+			printf("ERR: issue with reading from buffer\n");
+			printf("    Code: %d\n", read_buff);
+		}
+
+		printf("    Values read in: ");
+		for (int k = 0; k < size_data/sizeof(int); k++) {
+			printf("%d, ", read[k]);
+		}
+		printf("\n");
+
+
+
+
+
+
+
+
+
+
+
+
+// SVM
+
+		// shared virtual memory
+
+		printf("Shared Memory:\n");
+
+		// allocate memory
+		double from = 500;
+		double* to = (double*)clSVMAlloc(cont, CL_MEM_READ_WRITE, sizeof(double), 0);
+
+		if (to == (double*)NULL) {
+			printf("Failed to make memroy\n");
+		}
+
+		// copy data to the memory buffer
+
+		cl_int mem_cpy = clEnqueueSVMMemcpy(queue, CL_TRUE, to, &from, sizeof(double), 0, NULL, NULL);
+		if (mem_cpy != CL_SUCCESS) {
+			printf("ERR: issue with copying memory\n");
+			printf("    Code: %d\n", mem_cpy);
+		}
+
+
+		printf("    SVM output: %lf\n", *to);
+
+		// clear the memory
+		clSVMFree(cont, to);
+
+
+
+
+
+// Creating an individual kernel object
+		// Option A: create individual kernel objects
+		
+		//cl_int errcode_ret_kernel;
+		//// test is the name of the kernel created above
+		//cl_kernel kernel = clCreateKernel(program, "test", &errcode_ret_kernel);
+		//if (errcode_ret_kernel != CL_SUCCESS) {
+		//	printf("ERR: issue with creating the kernel\n");
+		//	printf("    Code: %d\n", errcode_ret_kernel);
+		//}

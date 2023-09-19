@@ -69,4 +69,10 @@
   <ItemGroup>
     <Library Include="Depend\lib\OpenCL.lib" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="kernels\Main.kernel" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="snippits\snippits.txt" />
+  </ItemGroup>
 </Project>

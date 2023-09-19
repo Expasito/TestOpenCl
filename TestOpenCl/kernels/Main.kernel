@@ -1,0 +1,37 @@
+
+void log(int gid, int value){
+	printf("GID: %d, Value: %d\n",gid,value);
+}
+
+
+struct vec3{
+	float x,y,z;
+};
+void logVec(int gid, struct vec3 in){
+	printf("GID: %d :: (%f, %f, %f)\n",gid, in.x,in.y,in.z);
+}
+
+
+struct vec3 multiply(struct vec3 one, struct vec3 two) {
+	struct vec3 temp = {one.x*two.x,one.y*two.y,one.z*two.z};
+	return temp;
+}
+
+__kernel void test(__global struct vec3* output, __global struct vec3* vectors1, __global struct vec3* vectors2) {
+	
+	// first log the vectors to them
+	int gid = get_global_id(0);
+	struct vec3 in1 = vectors1[gid];
+	struct vec3 in2 = vectors2[gid];
+
+	logVec(gid, in1);
+	logVec(gid, in2);
+
+	struct vec3 out = multiply(in1,in2);
+
+	logVec(gid, out);
+
+	output[gid] = out;
+
+
+}
