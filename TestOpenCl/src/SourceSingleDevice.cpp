@@ -23,6 +23,7 @@
 #include <CL/cl.hpp>
 #include <iostream>
 #include <stdlib.h>
+#include <chrono>
 
 //callback function
 void create_context(const char* errinfo, const void* private_info, size_t cb, void* user_data) {
@@ -127,6 +128,7 @@ char* readInKernelCode(const char* path) {
 
 int main() {
 
+	
 
 
 
@@ -149,7 +151,7 @@ int main() {
 		printf("%s\n", platform_version);
 
 		// now get all of the devices for that platform
-		cl_uint num_entries_device=10;
+		cl_uint num_entries_device = 10;
 		cl_device_id devices[10];
 		cl_uint num_devices;
 		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_entries_device, devices, &num_devices);
@@ -161,15 +163,15 @@ int main() {
 			getDeviceInfo(devices[j]);
 
 			// create subdevices
-			const cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY,4,0};
-			cl_uint num_devices_sub=20;
+			const cl_device_partition_property properties[] = { CL_DEVICE_PARTITION_EQUALLY,4,0 };
+			cl_uint num_devices_sub = 20;
 			cl_device_id out_devices_sub[20];
 			cl_uint num_devices_sub_ret;
 			cl_uint err = clCreateSubDevices(devices[j], properties, num_devices_sub, out_devices_sub, &num_devices_sub_ret);
 			if (err == CL_DEVICE_PARTITION_FAILED) {
 				printf("      ERR: No more devices can be created\n");
 			}
-			else if(err==CL_INVALID_VALUE) {
+			else if (err == CL_INVALID_VALUE) {
 				printf("      ERR: Error with subpartition this device\n");
 			}
 
@@ -179,9 +181,9 @@ int main() {
 		}
 
 		// now create contexts
-		const cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, cl_context_properties(platforms[i]), 0};
+		const cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, cl_context_properties(platforms[i]), 0 };
 		cl_int errcode_ret;
-		cl_context cont = clCreateContext(properties, num_devices,devices,create_context,NULL,&errcode_ret);
+		cl_context cont = clCreateContext(properties, num_devices, devices, create_context, NULL, &errcode_ret);
 
 		if (errcode_ret != CL_SUCCESS) {
 			printf("ERR: issue with creating context\n");
@@ -236,7 +238,7 @@ int main() {
 			printf("ERR: issue with building the program\n");
 			printf("    Code: %d\n", build);
 		}
-		
+
 
 		// get build errors here!
 		char log[1000];
@@ -251,7 +253,7 @@ int main() {
 		printf("Kernel Objects:\n");
 
 
-		
+
 		// we will use the first kernel since that is our 'main' function
 		cl_kernel kernels[20];
 		cl_uint num_kernels_ret;
@@ -270,13 +272,15 @@ int main() {
 
 
 		/*
-		* 
-		* 
+		*
+		*
 		* Create the buffer objects for the program and then send them over to the kernel arguments
-		* 
-		* 
+		*
+		*
 		*/
 
+		// we will consider this to be the start of the program since we will update buffers and stuff
+		std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 
 		//Buffer objects
 
@@ -290,7 +294,7 @@ int main() {
 
 
 		// give first array of vectors
-		vec3 vectors1[] = { 
+		vec3 vectors1[] = {
 			{0,0,0},
 			{1,1,1},
 			{2,2,2},
@@ -300,11 +304,12 @@ int main() {
 			{6,6,6},
 			{7,7,7},
 			{8,8,8},
-			{9,9,9}
+			{9,9,9},
+			{10,10,10}
 		};
 
 		// give second array of vectors
-		vec3 vectors2[] = { 
+		vec3 vectors2[] = {
 			{0,0,0},
 			{-1,-1,-1},
 			{-2,-2,-2},
@@ -314,26 +319,36 @@ int main() {
 			{-6,-6,-6},
 			{-7,-7,-7},
 			{-8,-8,-8},
-			{-9,-9,-9}
+			{-9,-9,-9},
+			{-10,-10,-10}
 		};
 		size_t vectors1Size = sizeof(vectors1);
 		cl_mem vectors1Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors1Size, &vectors1, NULL);
 
-		
+
 		size_t vectors2Size = sizeof(vectors2);
 		cl_mem vectors2Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors2Size, &vectors2, NULL);
 
 
 		// this records the number of elements to process
-		size_t elements = sizeof(vectors1) / sizeof(vec3);
+		int elements = sizeof(vectors1) / sizeof(vec3);
 		printf("Computing %d elements\n", elements);
 
+		int width = 80;
+		int height = 80;
+		int workers = width * height;
 
 		// create a return array of vectors
-		cl_mem outputVectors = clCreateBuffer(cont, CL_MEM_READ_WRITE, sizeof(vec3) * elements, NULL, NULL);
+		// this needs to be with*height in size
+		cl_mem outputVectors = clCreateBuffer(cont, CL_MEM_READ_WRITE, sizeof(vec3) * width * height, NULL, NULL);
 
 
+		cl_mem maxElements = clCreateBuffer(cont, CL_MEM_READ_WRITE, sizeof(elements), &elements, NULL);
 
+
+		std::chrono::high_resolution_clock::time_point buffersDone = std::chrono::high_resolution_clock::now();
+		
+		printf("Time for Buffers: %lf [ms]\n", (buffersDone - start).count() / 1000000.0);
 
 		// set kernel arguments
 
@@ -347,6 +362,13 @@ int main() {
 		// set the second input vector
 		cl_int kernel_arg3 = clSetKernelArg(kernels[0], 2, sizeof(cl_mem), &vectors2Memory);
 
+		cl_int kernel_arg4 = clSetKernelArg(kernels[0], 3, sizeof(int),&elements);
+
+
+		std::chrono::high_resolution_clock::time_point argumentsDone = std::chrono::high_resolution_clock::now();
+
+		printf("Time for Args: %lf [ms]\n", (argumentsDone - buffersDone).count() / 1000000.0);
+
 
 		//// get kernel info
 		size_t work_group_size;
@@ -358,7 +380,7 @@ int main() {
 
 
 		//edit work group size
-		work_group_size = elements;
+		work_group_size = workers;
 		size_t local_group_size = 1;
 
 		printf("Executing Kernels:\n");
@@ -367,23 +389,35 @@ int main() {
 		cl_int ex = clEnqueueNDRangeKernel(queue, kernels[0], 1, NULL, &work_group_size, &local_group_size, 0, NULL, NULL);
 
 
+		std::chrono::high_resolution_clock::time_point enqueuedDone = std::chrono::high_resolution_clock::now();
+		printf("Time for Enqueue: %lf [ms]\n", (enqueuedDone - argumentsDone).count() / 1000000.0);
+
+
 
 		// wait for command to finish
 		clFinish(queue);
+
+		std::chrono::high_resolution_clock::time_point clFinished = std::chrono::high_resolution_clock::now();
+		printf("Time for Finish: %lf [ms]\n", (clFinished - enqueuedDone).count() / 1000000.0);
+
+
+
+		std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+		printf("Total time taken: %lf [ms]\n", (end-start).count() / 1000000.0);
 
 
 		//// read in values
 		printf("Read in values from kernel\n");
 		printf("Reading Buffer Data:\n");
-		vec3* output = (vec3*)malloc(sizeof(vec3) * (elements));
+		int* output = (int*)malloc(sizeof(int) * (workers));
 		//vec3 output[50];
 		cl_int ret = 0;
 		ret = clEnqueueReadBuffer(queue, outputVectors, CL_TRUE, 0, sizeof(vec3) * elements, output, 0, NULL, NULL);
 
 		printf("Return from read buffer: %d\n", ret);
 		for (int i = 0; i < elements; i++) {
-			vec3 temp = output[i];
-			printf("I: %d :: (%f, %f, %f)\n", i, temp.x,temp.y,temp.z);
+			int x = output[i];
+			printf("I: %d :: (%f)\n", i, x);
 		}
 
 		//int* read_in = (int*)malloc(sizeof(int) * size_of_array);

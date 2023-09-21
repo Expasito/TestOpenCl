@@ -17,21 +17,33 @@ struct vec3 multiply(struct vec3 one, struct vec3 two) {
 	return temp;
 }
 
-__kernel void test(__global struct vec3* output, __global struct vec3* vectors1, __global struct vec3* vectors2) {
+struct vec3 add(struct vec3 one, struct vec3 two) {
+	struct vec3 temp = {one.x+two.x, one.y+two.y, one.z+two.z};
+	return temp;
+}
+
+__kernel void test(__global struct vec3* output, __global struct vec3* vectors1, __global struct vec3* vectors2, const int index) {
 	
 	// first log the vectors to them
 	int gid = get_global_id(0);
-	struct vec3 in1 = vectors1[gid];
-	struct vec3 in2 = vectors2[gid];
+	struct vec3 ret = {0,0,0};
+	for(int i=0;i<index;i++) {
+		struct vec3 temp = vectors1[i];
+		ret = add(ret, temp);
+	}
+	//struct vec3 in1 = vectors1[0+index];
+	//struct vec3 in2 = vectors2[0];
 
-	logVec(gid, in1);
-	logVec(gid, in2);
+	//struct vec3 in3 = vectors[maxElements-1];
 
-	struct vec3 out = multiply(in1,in2);
+	//logVec(gid, ret);
+	//logVec(gid, in2);
 
-	logVec(gid, out);
+	//struct vec3 out = multiply(in1,in2);
 
-	output[gid] = out;
+	//logVec(gid, out);
+
+	output[gid] = ret;
 
 
 }
