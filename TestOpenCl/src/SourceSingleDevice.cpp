@@ -292,6 +292,11 @@ int main() {
 			float x, y, z;
 		};
 
+		struct Triangle {
+			vec3 p1, p2, p3;
+
+		};
+
 
 		// give first array of vectors
 		vec3 vectors1[] = {
@@ -322,6 +327,13 @@ int main() {
 			{-9,-9,-9},
 			{-10,-10,-10}
 		};
+
+
+		// Just 1 triangle for now
+		Triangle triangles[] = {
+			{{-1,-1,0}, {0,1,0}, {1,-1,0}},
+		};
+
 		size_t vectors1Size = sizeof(vectors1);
 		cl_mem vectors1Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors1Size, &vectors1, NULL);
 
@@ -330,12 +342,16 @@ int main() {
 		cl_mem vectors2Memory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, vectors2Size, &vectors2, NULL);
 
 
+		size_t trianglesSize = sizeof(triangles);
+		cl_mem trianglesMemory = clCreateBuffer(cont, CL_MEM_USE_HOST_PTR, trianglesSize, &triangles, NULL);
+
+
 		// this records the number of elements to process
-		int elements = sizeof(vectors1) / sizeof(vec3);
+		int elements = sizeof(triangles) / sizeof(Triangle);
 		printf("Computing %d elements\n", elements);
 
-		int width = 80;
-		int height = 80;
+		int width = 800;
+		int height = 800;
 		int workers = width * height;
 
 		// create a return array of vectors
@@ -355,14 +371,20 @@ int main() {
 		// First is the output vector
 		cl_int kern_arg = clSetKernelArg(kernels[0], 0, sizeof(cl_mem), &outputVectors);
 
+		cl_int kern_arg2 = clSetKernelArg(kernels[0], 1, sizeof(cl_mem), &trianglesMemory);
 
-		// set the first input vector
-		cl_int kernel_arg2 = clSetKernelArg(kernels[0], 1, sizeof(cl_mem), &vectors1Memory);
+		cl_int kernel_arg4 = clSetKernelArg(kernels[0], 2, sizeof(int), &elements);
 
-		// set the second input vector
-		cl_int kernel_arg3 = clSetKernelArg(kernels[0], 2, sizeof(cl_mem), &vectors2Memory);
+		clSetKernelArg(kernels[0], 3, sizeof(int), &width);
+		clSetKernelArg(kernels[0], 4, sizeof(int), &height);
 
-		cl_int kernel_arg4 = clSetKernelArg(kernels[0], 3, sizeof(int),&elements);
+
+
+		//// set the first input vector
+		//cl_int kernel_arg2 = clSetKernelArg(kernels[0], 1, sizeof(cl_mem), &vectors1Memory);
+		//// set the second input vector
+		//cl_int kernel_arg3 = clSetKernelArg(kernels[0], 2, sizeof(cl_mem), &vectors2Memory);
+
 
 
 		std::chrono::high_resolution_clock::time_point argumentsDone = std::chrono::high_resolution_clock::now();
@@ -409,16 +431,27 @@ int main() {
 		//// read in values
 		printf("Read in values from kernel\n");
 		printf("Reading Buffer Data:\n");
-		int* output = (int*)malloc(sizeof(int) * (workers));
+		vec3* output = (vec3*)malloc(sizeof(vec3) * (workers));
 		//vec3 output[50];
 		cl_int ret = 0;
-		ret = clEnqueueReadBuffer(queue, outputVectors, CL_TRUE, 0, sizeof(vec3) * elements, output, 0, NULL, NULL);
+		ret = clEnqueueReadBuffer(queue, outputVectors, CL_TRUE, 0, sizeof(vec3) * workers, output, 0, NULL, NULL);
+
+		// start writing to the file
+		FILE* file = fopen("outputs/Image.ppm", "w");
+		fprintf(file, "P3\n%d %d\n255\n", width, height);
 
 		printf("Return from read buffer: %d\n", ret);
-		for (int i = 0; i < elements; i++) {
-			int x = output[i];
-			printf("I: %d :: (%f)\n", i, x);
+		for (int i = 0; i < workers; i++) {
+			vec3 temp = output[i];
+			//printf("I: %d :: (%f, %f, %f)\n", i,temp.x, temp.y, temp.z);
+			char a = (int)temp.x;
+			char b = (int)temp.y;
+			char c = (int)temp.z;
+			//printf("%d %d %d\n", a, b, c);
+			fprintf(file, "%d %d %d\n", a, b, c);
 		}
+
+		fclose(file);
 
 		//int* read_in = (int*)malloc(sizeof(int) * size_of_array);
 		

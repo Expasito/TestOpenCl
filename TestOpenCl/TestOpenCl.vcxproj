@@ -158,6 +158,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="kernels\Main.kernel" />
+    <None Include="outputs\Image.ppm" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="snippits\snippits.txt" />
