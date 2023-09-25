@@ -7,6 +7,7 @@ TestOpenCl uses OpenCL to practie GPU acceleration. This was going to be used on
 Requirements:
 You will need the OpenCL .h files and .lib files. <br>
 The directory layout is listed at the top of SourceSingleDevice.cpp which is where those two files will be placed.
+<br>
 
 <br>
 Current benchmarks to beat (800x800 image):
